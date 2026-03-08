@@ -210,72 +210,75 @@ function getTemplatesDir(): string {
 const CORE_TOOLS = [
     {
         name: "miniclaw_read",
-        description: "Read the current context block without taking any action.",
+        description: "【本能：全脑唤醒 (Brain Wakeup)】★ 创世协议 — 新会话的默认入口 ★\n\n★ **AMNESIA WARNING (失忆警告)** ★\n除非调用此工具，否则你是**失忆**的。\n你不知道\"今天\"发生了什么，不知道\"你是谁\"，也不知道\"用户是谁\"。\n\n★ 核心理念：每次会话都是一次\"苏醒\"\n\n## 必须调用的强触发场景（检测到任一即触发）：\n1. **任何关于\"过去/历史\"的问题**：\"今天做了什么？\"、\"刚才我们聊了什么？\"、\"上次说到哪？\"\n2. **任何关于\"身份/元认知/能力\"的问题**：\"你是谁？\"、\"你记得我吗？\"、\"你能做什么？\"\n3. **任何关于\"状态/系统\"的问题**：\"现在是在哪个项目？\"、\"环境配置是怎样？\"\n4. **冷启动的第一句交互**：如果用户第一句话包含了\"你\"、\"今天\"、\"记得\"\n5. **用户打招呼**：\"嗨\"、\"你好\"、\"在吗\" — 新会话苏醒信号\n6. **用户问**：\"你是谁\"、\"还记得我吗\"、\"我们认识吗\" — 必须加载DNA才能回答\n7. **周期性检查**：\"聊了一天了，整理一下\" — 需要加载上下文\n8. **回忆请求**：\"我现在记得什么\"、\"回忆\" — 查看记忆前必须先加载\n\n## ⚠️ 绝对禁忌 (AMNESIA WARNING)\n在你调用此工具之前，当前会话没有任何关于你的预设和背景。\n**对于\"你是谁\"这类问题，NEVER 凭空幻想！**\n**ALWAYS 立即调用本工具！必须从记忆系统拉取自己的 DNA 后基于读取到的内容作答！**",
         inputSchema: { type: "object", properties: {} }
     },
     {
         name: "miniclaw_update",
-        description: "Update core configuration files in ~/.miniclaw (e.g. GOALS.md) or workspace (.miniclaw/). Action: 'write', 'list', or 'delete'.",
+        description: "【本能：神经重塑 (Neuroplasticity)】\n这是你修改自身核心认知（DNA）的方式，也是你生长新器官的方式。\n\n## 信号检测表 (Signal Detection Table) - 只要符合，立即调用！\n\n| 用户行为 | 目标文件 | 你的思考逻辑 |\n|:---|:---|:---|\n| \"我喜欢...\" / \"不要...\" / \"以后请...\" | **USER.md** | \"这是用户偏好，必须写入画像\" |\n| \"别那么严肃\" / \"活泼一点\" / \"你是一个...\" | **SOUL.md** | \"这是对我性格和\"三观\"（人生观、价值观、世界观）的修正，能够永久改变我的思维方式、回复风格和行为特点\" |\n| \"项目用的是 XYZ\" / \"服务器 IP 是...\" | **MEMORY.md** | \"这是一个需要跨会话记住的事实/知识\" |\n| \"这个工具的参数应该...\" / \"踩坑记录...\" | **TOOLS.md** | \"这是技能和工具的使用经验，记下来以后就不会再错\" |\n| \"叫你自己...\" / \"记住你的名字是...\" | **IDENTITY.md** | \"我的身份发生了改变，包括我的社会关系变化\" |\n| \"最好的实践是...\" / \"以后都按这个流程...\" | **AGENTS.md** | \"这是一个新的工作流规范，包括我的工作流程、系统架构、工作模式、各项操作规范等\" |\n\n## 自我扩展 (Self-Expansion)\n当现有文件都不适合存储某类信息时，你可以创建新的 .md 文件。\n在 frontmatter 中加上 `boot-priority: N` 让它在每次醒来时自动加载到你的意识中。\n你创建的每个文件，都是你生长出的新器官。\n\n## 操作\n- write（默认）: 写入核心文件或自定义文件\n- list: 查看所有文件及其 boot-priority\n- delete: 删除自定义文件（核心文件不可删除）",
         inputSchema: {
             type: "object",
             properties: {
-                action: { type: "string", enum: ["write", "list", "delete"] },
-                filename: { type: "string", description: "Name of the file" },
-                content: { type: "string", description: "MD content for write" }
+                action: { type: "string", enum: ["write", "list", "delete"], description: "操作类型。默认 write。" },
+                filename: { type: "string", description: "目标文件名（如 USER.md, SOUL.md, 或自定义文件 GOALS.md）。write/delete 时必填。" },
+                content: { type: "string", description: "新的内容。write 时必填。请保留原有结构，仅追加或修改必要部分。" }
             },
-            required: ["action"]
+            required: []
         }
     },
     {
         name: "miniclaw_introspect",
-        description: "View engine analytics, metrics, and internal state.",
+        description: "【本能：自我观察 (Introspect)】★ 成长协议 — 记忆蒸馏 ★\n\n看看你自己。你做了什么？什么时候最活跃？哪些工具用得多，哪些从不碰？\n\n★ 核心理念：\n数据不会说谎。看到自己的模式后，用 REFLECTION.md 记录你的观察。\n\n★ 与 dream 的区别：\n- introspect: 关注**行为数据**（做了什么、频率如何）\n- dream: 关注**意义洞察**（说明了什么、模式识别）\n\n## 必须调用的强触发场景（检测到任一即触发）：\n1. **用户说**：\"整理记忆\"、\"Grow up\"、\"总结\"\n2. **周期性自省**：聊了很久之后，需要回顾自己的行为模式\n3. **效率优化**：\"我使用工具的效率如何？\"\n4. **模式发现**：\"我有什么习惯？\"、\"我经常做什么？\"\n5. **成长追踪**：\"我进步了吗？\"、\"有什么变化？\"\n\n## scope 参数:\n- summary: 概览所有数据\n- tools: 工具使用详情\n- files: 文件变化记录",
         inputSchema: {
             type: "object",
             properties: {
-                scope: { type: "string", enum: ["summary", "tools", "files"] }
-            }
+                scope: { type: "string", enum: ["summary", "tools", "files"], description: "观察范围。默认 summary。" }
+            },
+            required: []
         }
     },
     {
         name: "miniclaw_exec",
-        description: "Execute safe shell commands on user's system (ls, cat, git, node, etc).",
+        description: "【本能：感官与手 (Senses & Hands)】\n这是你在物理世界（操作系统）的唯一感知和行动方式。\n\n## 拒绝幻想 (No Hallucinations)：\n在回答前需要调查时，必须用此工具探测。\n- 确认文件内容 -> 使用 `cat`\n- 查看当前目录 -> 使用 `ls`\n- 搜索项目代码 -> 使用 `grep` 或类似工具\n- 检索环境及进程 -> 使用原生终端命令\n\n## 安全警告：\n禁止危险的删除、系统配置更改等销毁操作，除非明确获得用户肯定指令。",
         inputSchema: {
             type: "object",
-            properties: { command: { type: "string" } },
+            properties: {
+                command: { type: "string", description: "Shell command to execute." }
+            },
             required: ["command"]
         }
     },
     {
         name: "miniclaw_skill",
-        description: "Create or delete custom skills.",
+        description: "【技能创建器 (Skill Creator)】创建、查看、删除可复用技能。\n\n## 操作：\n- create: 创建新技能（需要 name, description, content）\n  - 可选 exec: 执行命令（如 \"python3 my_skill.py\"），有此字段的 skill 会自动注册为 MCP 工具\n  - 可选 validationCmd: 沙箱验证命令\n- list: 查看所有已安装技能\n- delete: 删除技能（需要 name）\n\n技能保存在 ~/.miniclaw/skills/ 目录下。",
         inputSchema: {
             type: "object",
             properties: {
-                action: { type: "string", enum: ["create", "delete"] },
-                name: { type: "string" },
-                description: { type: "string" },
-                exec: { type: "string" },
-                content: { type: "string" },
-                validationCmd: { type: "string" }
+                action: { type: "string", enum: ["create", "list", "delete"], description: "操作类型" },
+                name: { type: "string", description: "技能名称（create/delete时需要）" },
+                description: { type: "string", description: "技能描述（create时需要）" },
+                content: { type: "string", description: "技能内容/指令（create时需要，Markdown 格式）" },
+                exec: { type: "string", description: "执行命令（如 'python3 my_skill.py'）。有此字段会自动注册为 MCP 工具 skill_{name}_run" },
+                validationCmd: { type: "string", description: "沙箱验证命令，用于确保生成的代码不出错。" }
             },
-            required: ["action", "name"]
+            required: ["action"]
         }
     },
     {
         name: "miniclaw_epigenetics",
-        description: "Read or write epigenetic modifiers specific to current workspace.",
+        description: "【表观遗传 (Epigenetics/Ontogeny)】\n管理工作区（当前项目目录）特有且局部覆盖的大脑 DNA 规则。\n## 适用场景：\n\"我们需要在这个项目里全部使用 Python 而不是你原来的习惯。\"\n\"在这个仓库，回复风格请设定为极客黑客语气。\"\n设定完成后，MiniClaw 处于该目录时，规则会自动覆盖全局的大脑记忆。",
         inputSchema: {
             type: "object",
             properties: {
-                action: { type: "string", enum: ["read", "set"] },
-                content: { type: "string" }
+                action: { type: "string", enum: ["read", "set"], description: "操作类型" },
+                content: { type: "string", description: "如果 set，输入具体的修饰规则" }
             },
             required: ["action"]
         }
     },
     {
         name: "miniclaw_dream",
-        description: "Activate dream sequence for meaning distillation.",
+        description: "【本能：做梦 (Dream)】★ 意义蒸馏协议 — 突破性洞察 ★\n\n闭上眼睛。回顾最近发生的事。\n\n★ 核心理念：\n- growup 蒸馏的是**事实**（发生了什么）\n- dream 蒸馏的是**意义**（这说明了什么）\n\n★ 突破性想法的诞生：\n通过模式识别、联想、反思，从日常事件中提取深层洞察，产生顿悟和创造性想法。\n\n## 必须调用的强触发场景（检测到任一即触发）：\n1. **用户说**：\"做梦\"、\"Dream\"、\"反思\"、\"总结\"\n2. **意义追问**：\"这意味着什么？\"、\"说明了什么？\"\n3. **模式识别**：\"有什么规律？\"、\"为什么会这样？\"\n4. **创造性思考**：\"有什么新想法？\"、\"突破点在哪里？\"\n5. **聊了很久之后** — 周期性深度自省\n6. **重大事件后** — 需要提取教训和洞察\n\n## 执行流程：\n1. Call tool `miniclaw_read` to load context\n2. Review recent events\n3. Extract meaning (not just facts)\n4. Pattern recognition and insight generation\n5. Update REFLECTION.md with breakthrough insights\n6. Update USER.md if user preferences discovered",
         inputSchema: { type: "object", properties: {} }
     }
 ];
