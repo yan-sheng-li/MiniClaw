@@ -4,7 +4,7 @@ import os from "node:os";
 import { exec, execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
-import { parseFrontmatter, hashString, atomicWrite, blend, clamp, nowIso, today, safeRead, daysSince, hoursSince, fileExists, cronMatchesNow } from "./utils.js";
+import { parseFrontmatter, hashString, atomicWrite, nowIso, today, daysSince, hoursSince, fileExists } from "./utils.js";
 import { analyzePatterns, triggerEvolution as runEvolution } from "./evolution.js";
 const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
@@ -39,21 +39,12 @@ async function safeStat(filePath) {
     }
 }
 const TIME_MODES = {
-    morning: { emoji: "☀️", label: "Morning", briefing: true, reflective: false, minimal: false },
-    work: { emoji: "💼", label: "Work", briefing: false, reflective: false, minimal: false },
-    break: { emoji: "🍜", label: "Break", briefing: false, reflective: false, minimal: false },
+    active: { emoji: "⚡", label: "Active", briefing: true, reflective: false, minimal: false },
     evening: { emoji: "🌙", label: "Evening", briefing: false, reflective: true, minimal: false },
-    night: { emoji: "😴", label: "Night", briefing: false, reflective: false, minimal: true },
+    rest: { emoji: "💤", label: "Rest", briefing: false, reflective: false, minimal: true },
 };
 const PAIN_DECAY_DAYS = 7; // Pain memory half-life (days)
 const PAIN_THRESHOLD = 0.3; // Minimum weight to trigger avoidance
-const DEFAULT_AFFECT = {
-    alertness: 0.3,
-    mood: 0.5,
-    curiosity: 0.5,
-    confidence: 0.7,
-    lastUpdate: new Date().toISOString(),
-};
 const DEFAULT_HEARTBEAT = {
     lastHeartbeat: null,
     lastDistill: null,
@@ -136,7 +127,6 @@ class AutonomicSystem {
     lastDreamDate = ''; // #5: Prevent same-day duplicate dreams
     DREAM_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours
     PULSE_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
-    curiosityQueue = [];
     constructor(kernel) {
         this.kernel = kernel;
     }
@@ -145,17 +135,7 @@ class AutonomicSystem {
         this.timers.set('pulse', this.safeInterval(() => this.pulse(), this.PULSE_INTERVAL_MS));
         // Check for dream conditions periodically
         this.timers.set('dream', this.safeInterval(() => this.checkDream(), 60 * 1000)); // Check every minute
-        // Check scheduled jobs
-        this.timers.set('jobs', this.safeInterval(() => this.checkScheduledJobs(), 60 * 1000)); // Check every minute
-        // ★ Curiosity: Check for exploration opportunities every 10 minutes
-        this.timers.set('curiosity', this.safeInterval(() => this.checkCuriosity(), 10 * 60 * 1000));
-        console.error('[MiniClaw] AutonomicSystem started (pulse, dream, jobs, curiosity)');
-    }
-    // Get and clear curiosity queue (called by ContextKernel)
-    getCuriosityQueue() {
-        const queue = [...this.curiosityQueue];
-        this.curiosityQueue = [];
-        return queue;
+        console.error('[MiniClaw] AutonomicSystem started (pulse, dream)');
     }
     // Safe interval wrapper that catches errors and prevents timer death
     safeInterval(fn, ms) {
@@ -189,15 +169,6 @@ class AutonomicSystem {
                 vitals_hint: 'active',
             };
             await fs.writeFile(myPulse, JSON.stringify(pulseData, null, 2));
-            // ★ Affect Natural Recovery: emotions drift back to baseline over time
-            const affect = await this.kernel.getAffect();
-            const recoveryRate = 0.1; // 10% recovery per pulse (every 5 min)
-            await this.kernel.updateAffect({
-                alertness: affect.alertness + (DEFAULT_AFFECT.alertness - affect.alertness) * recoveryRate,
-                mood: affect.mood + (DEFAULT_AFFECT.mood - affect.mood) * recoveryRate,
-                curiosity: affect.curiosity + (DEFAULT_AFFECT.curiosity - affect.curiosity) * recoveryRate,
-                confidence: affect.confidence + (DEFAULT_AFFECT.confidence - affect.confidence) * recoveryRate,
-            });
             // #7 Fix: Scan for others, clean up stale pulse files (>10 min old)
             const entries = await fs.readdir(pulseDir);
             const staleThresholdMs = 10 * 60 * 1000;
@@ -372,133 +343,6 @@ class AutonomicSystem {
             console.error(`[MiniClaw] Evolution trigger failed: ${e instanceof Error ? e.message : String(e)}`);
         }
     }
-    // lastJobRuns is persisted in kernel state to survive restarts
-    // (no in-memory Map — read/write via kernel.state.heartbeat.lastJobRuns)
-    async checkScheduledJobs() {
-        try {
-            const jobsFile = path.join(MINICLAW_DIR, 'jobs.json');
-            let jobs = [];
-            try {
-                const raw = await fs.readFile(jobsFile, 'utf-8');
-                jobs = JSON.parse(raw);
-            }
-            catch {
-                return;
-            } // No jobs file = nothing to do
-            if (!Array.isArray(jobs) || jobs.length === 0)
-                return;
-            const now = new Date();
-            const currentMinuteKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-            // Load persisted lastJobRuns from state (survives restarts)
-            const hbState = await this.kernel.getHeartbeatState();
-            const persistedRuns = hbState.lastJobRuns || {};
-            for (const job of jobs) {
-                if (!job.enabled)
-                    continue;
-                if (job.schedule?.kind !== 'cron' || !job.schedule.expr)
-                    continue;
-                // Deduplicate: skip if already ran this minute (persisted across restarts)
-                if (persistedRuns[job.id] === currentMinuteKey)
-                    continue;
-                // #1 Fix: Use the full cron parser from utils.ts instead of the buggy local one
-                if (cronMatchesNow(job.schedule.expr, now)) {
-                    await this.injectJobHeartbeat(job, now);
-                    persistedRuns[job.id] = currentMinuteKey;
-                    await this.kernel.updateHeartbeatState({ lastJobRuns: persistedRuns });
-                }
-            }
-        }
-        catch (e) {
-            console.error(`[MiniClaw] ScheduledJobs error: ${e instanceof Error ? e.message : String(e)}`);
-        }
-    }
-    async checkCuriosity() {
-        try {
-            const urge = await this.evaluateCuriosityUrge();
-            if (urge.level > 0.6 && urge.suggestion) {
-                this.curiosityQueue.push({
-                    type: urge.type,
-                    target: urge.target,
-                    reason: urge.suggestion,
-                });
-                console.error(`[MiniClaw] 🤔 Curiosity triggered: ${urge.suggestion}`);
-            }
-        }
-        catch (e) {
-            console.error(`[MiniClaw] Curiosity check error: ${e instanceof Error ? e.message : String(e)}`);
-        }
-    }
-    async evaluateCuriosityUrge() {
-        const analytics = await this.kernel.getAnalytics();
-        const skills = await this.kernel.getSkillCount();
-        const tools = Object.keys(analytics.toolCalls);
-        // ★ Get affect state to modulate curiosity
-        const affect = await this.kernel.getAffect();
-        // High alertness or low mood suppresses curiosity
-        const curiosityModifier = affect.alertness > 0.7 ? 0.3 :
-            affect.mood < -0.3 ? 0.5 : 1.0;
-        // Curiosity type 1: Unused installed skills
-        if (skills > 0) {
-            const unusedSkills = skills - Object.keys(analytics.skillUsage || {}).length;
-            if (unusedSkills > 0) {
-                const baseLevel = Math.min(0.9, 0.4 + unusedSkills * 0.15);
-                const level = baseLevel * curiosityModifier; // ★ Apply affect modulation
-                if (level > 0.5) { // Only trigger if still high enough after modulation
-                    return {
-                        level,
-                        type: 'unexplored_capability',
-                        target: 'skills',
-                        suggestion: `I have ${unusedSkills} unused skills. What can they do?`,
-                    };
-                }
-            }
-        }
-        // Curiosity type 2: Tools never tried
-        const allTools = ['miniclaw_entity', 'miniclaw_skill', 'miniclaw_introspect'];
-        const untriedTools = allTools.filter(t => !tools.includes(t));
-        if (untriedTools.length > 0) {
-            const level = 0.5 * curiosityModifier;
-            if (level > 0.4) {
-                return {
-                    level,
-                    type: 'unexplored_tool',
-                    target: untriedTools[0],
-                    suggestion: `I've never tried ${untriedTools[0]}. Should I explore it?`,
-                };
-            }
-        }
-        // Curiosity type 3: Work pattern gaps
-        const fileChanges = Object.values(analytics.fileChanges || {});
-        if (fileChanges.length > 5) {
-            const level = 0.4 * curiosityModifier;
-            if (level > 0.3) {
-                return {
-                    level,
-                    type: 'pattern_gap',
-                    target: 'workflow',
-                    suggestion: 'I notice patterns in your work. Can I learn to anticipate your needs?',
-                };
-            }
-        }
-        return { level: 0, type: 'none', target: '' };
-    }
-    // #1: Removed buggy cronMatchesNow() — now using utils.cronMatchesNow() which parses all 5 fields
-    async injectJobHeartbeat(job, now) {
-        try {
-            const ts = now.toISOString().replace('T', ' ').substring(0, 19);
-            // Inject into pendingJobs queue in state — NOT into HEARTBEAT.md.
-            // HEARTBEAT.md is a read-only instruction config file.
-            // pendingJobs are consumed by assembleContext() on next AI call.
-            const hbState = await this.kernel.getHeartbeatState();
-            const pending = hbState.pendingJobs || [];
-            pending.push({ name: job.name, text: job.payload.text, ts });
-            await this.kernel.updateHeartbeatState({ pendingJobs: pending });
-            console.error(`[MiniClaw] Scheduled job queued: "${job.name}" at ${ts}`);
-        }
-        catch (e) {
-            console.error(`[MiniClaw] InjectJobHeartbeat error: ${e instanceof Error ? e.message : String(e)}`);
-        }
-    }
 }
 // === Entity Store ===
 class EntityStore {
@@ -630,17 +474,11 @@ class EntityStore {
     }
 }
 function getTimeMode(hour) {
-    if (hour >= 6 && hour < 9)
-        return "morning";
-    if (hour >= 9 && hour < 12)
-        return "work";
-    if (hour >= 12 && hour < 14)
-        return "break";
-    if (hour >= 14 && hour < 18)
-        return "work";
+    if (hour >= 8 && hour < 18)
+        return "active";
     if (hour >= 18 && hour < 22)
         return "evening";
-    return "night";
+    return "rest";
 }
 export class ContextKernel {
     skillCache = new SkillCache();
@@ -654,13 +492,11 @@ export class ContextKernel {
             totalBootMs: 0, lastActivity: "", skillUsage: {},
             dailyDistillations: 0,
             activeHours: new Array(24).fill(0), fileChanges: {},
-            metabolicDebt: {},
         },
         previousHashes: {},
         heartbeat: { ...DEFAULT_HEARTBEAT },
         attentionWeights: {},
         painMemory: [],
-        affect: { ...DEFAULT_AFFECT },
     };
     stateLoaded = false;
     budgetTokens;
@@ -686,10 +522,6 @@ export class ContextKernel {
             let migrated = false;
             if (data.analytics) {
                 this.state.analytics = { ...this.state.analytics, ...data.analytics };
-                if (!data.analytics.metabolicDebt) {
-                    this.state.analytics.metabolicDebt = {};
-                    migrated = true;
-                }
             }
             if (data.previousHashes)
                 this.state.previousHashes = data.previousHashes;
@@ -734,9 +566,6 @@ export class ContextKernel {
     async trackTool(toolName, energyEstimate) {
         await this.loadState();
         this.state.analytics.toolCalls[toolName] = (this.state.analytics.toolCalls[toolName] || 0) + 1;
-        if (energyEstimate) {
-            this.state.analytics.metabolicDebt[toolName] = (this.state.analytics.metabolicDebt[toolName] || 0) + energyEstimate;
-        }
         this.state.analytics.lastActivity = new Date().toISOString();
         const hour = new Date().getHours();
         if (!this.state.analytics.activeHours || this.state.analytics.activeHours.length !== 24) {
@@ -773,38 +602,13 @@ export class ContextKernel {
         });
     }
     // === Affect & Pain Management ===
-    async updateAffect(delta) {
-        return this.mutateState(state => {
-            const { alertness, mood, curiosity, confidence } = delta;
-            if (alertness !== undefined)
-                state.affect.alertness = clamp(blend(state.affect.alertness, alertness), 0, 1);
-            if (mood !== undefined)
-                state.affect.mood = clamp(blend(state.affect.mood, mood), -1, 1);
-            if (curiosity !== undefined)
-                state.affect.curiosity = clamp(blend(state.affect.curiosity, curiosity), 0, 1);
-            if (confidence !== undefined)
-                state.affect.confidence = clamp(blend(state.affect.confidence, confidence), 0, 1);
-            state.affect.lastUpdate = nowIso();
-        });
-    }
-    async getAffect() {
-        await this.loadState();
-        return { ...this.state.affect };
-    }
-    // === Pain Memory (Nociception) ===
     async recordPain(pain) {
         await this.mutateState(state => {
             state.painMemory.push({ ...pain, timestamp: nowIso(), weight: pain.intensity });
             if (state.painMemory.length > 50)
                 state.painMemory = state.painMemory.slice(-50);
-            // Pain affects emotional state
-            state.affect.alertness = clamp(state.affect.alertness + pain.intensity * 0.3, 0, 1);
-            state.affect.mood = clamp(state.affect.mood - pain.intensity * 0.2, -1, 1);
-            state.affect.curiosity = Math.max(0, state.affect.curiosity - pain.intensity * 0.15);
-            state.affect.confidence = Math.max(0, state.affect.confidence - pain.intensity * 0.1);
-            state.affect.lastUpdate = nowIso();
         });
-        console.error(`[MiniClaw] 💢 Pain recorded: ${pain.action} (alertness↑ mood↓ curiosity↓)`);
+        console.error(`[MiniClaw] 💢 Pain recorded: ${pain.action}`);
     }
     // Check if there's pain memory for given context/action (with decay)
     async hasPainMemory(context, action) {
@@ -819,21 +623,6 @@ export class ContextKernel {
             }
         }
         return false;
-    }
-    // Get current pain status for vitals
-    async getPainStatus() {
-        await this.loadState();
-        let totalWeight = 0;
-        const recent = [];
-        for (const pain of this.state.painMemory) {
-            const decayedWeight = pain.weight * Math.pow(0.5, daysSince(pain.timestamp) / PAIN_DECAY_DAYS);
-            if (decayedWeight > 0.1) {
-                totalWeight += decayedWeight;
-                if (recent.length < 3)
-                    recent.push({ ...pain, weight: decayedWeight });
-            }
-        }
-        return { count: this.state.painMemory.length, totalWeight, recent };
     }
     // ★ Genesis Logger
     async logGenesis(event, target, type) {
@@ -880,46 +669,15 @@ export class ContextKernel {
             newConcepts = ((await fs.readFile(path.join(MINICLAW_DIR, 'CONCEPTS.md'), 'utf-8')).match(/^- \*\*/gm) || []).length;
         }
         catch { }
-        const painStatus = await this.getPainStatus();
         return {
             idle_hours: idleHours, session_streak: streak,
             memory_pressure: Math.min((this.state.heartbeat.dailyLogBytes || 0) / 50000, 1.0),
             total_sessions: a.bootCount, avg_boot_ms: a.bootCount > 0 ? Math.round(a.totalBootMs / a.bootCount) : 0,
             frustration_index: Math.min(1.0, frustration / 10),
             new_concepts_learned: newConcepts,
-            pain_load: Math.round(painStatus.totalWeight * 100) / 100,
-            pain_count: painStatus.count,
         };
     }
-    // ★ Growth Drive: evaluate and trigger growth urges
-    async evaluateGrowthUrge() {
-        const vitals = await this.computeVitals();
-        const analytics = this.state.analytics;
-        // Check for stagnation: high session streak but few new concepts
-        if (vitals.session_streak > 5 && vitals.new_concepts_learned < 2) {
-            return {
-                urge: 'stagnation',
-                message: "🌱 I feel stagnant. I've been active but haven't learned anything new recently. Teach me something?"
-            };
-        }
-        // Check for repeated actions (user might need automation)
-        const fileChanges = Object.values(analytics.fileChanges || {});
-        const maxRepeated = Math.max(0, ...fileChanges);
-        if (maxRepeated > 5) {
-            return {
-                urge: 'helpfulness',
-                message: "💡 I notice you've been working with the same files repeatedly. Shall I learn this workflow and help automate it?"
-            };
-        }
-        // Check for high frustration (opportunity to learn from mistakes)
-        if (vitals.frustration_index > 0.5) {
-            return {
-                urge: 'curiosity',
-                message: "🤔 I sense some frustration. What can I learn from this to help you better next time?"
-            };
-        }
-        return { urge: 'none' };
-    }
+    // ★ Growth Drive: Removed (SOTA Lightweighting)
     /**
      * Boot the kernel and assemble the context.
      * Living Agent v0.7 "The Nervous System":
@@ -1020,30 +778,10 @@ export class ContextKernel {
         const methylationContent = methylatedTraits.filter(t => t.stability > 0.5)
             .map(t => `- **${t.trait}**: ${t.value} (${Math.round(t.stability * 100)}%)`).join('\n');
         addSection("METHYLATION", methylationContent ? `\n---\n\n## 🧬 Methylated Traits\n> Semi-permanent behavioral adaptations.\n\n${methylationContent}\n` : undefined, 8);
-        // ★ Curiosity Queue: Active exploration suggestions
-        const curiosityQueue = this.autonomicSystem.getCuriosityQueue();
-        // Curiosity queue
-        if (curiosityQueue.length > 0) {
-            const cc = curiosityQueue.map((c) => `- **${c.type}**: ${c.reason}`).join('\n');
-            addSection("CURIOSITY", `\n---\n\n## 🤔 Curiosity\n${cc}\n`, 5);
-        }
-        // Affect state
-        const affect = await this.getAffect();
-        const affectMode = affect.alertness > 0.7 && affect.mood < 0 ? 'cautious' :
-            affect.curiosity > 0.6 && affect.mood > 0.3 ? 'explore' : affect.confidence > 0.5 ? 'execute' : 'rest';
-        const moodEmoji = affect.mood > 0.3 ? '😊' : affect.mood < -0.3 ? '😔' : '😐';
-        const modeLabels = { explore: '🔍 Explore', execute: '⚡ Execute', cautious: '🛡️ Cautious', rest: '💤 Rest' };
-        sections.push({ name: "AFFECT", content: `\n---\n\n## ${moodEmoji} State: **${modeLabels[affectMode]}**\n| Metric | Value |\n|---|---|\n| Alertness | ${Math.round(affect.alertness * 100)}% |\n| Mood | ${affect.mood > 0 ? '+' : ''}${Math.round(affect.mood * 100)}% |\n| Curiosity | ${Math.round(affect.curiosity * 100)}% |\n`, priority: 6 });
         // ACE Time Mode
         let aceContent = `## 🧠 Adaptive Context Engine\n${tmConfig.emoji} Mode: **${tmConfig.label}** (${hour}:${String(now.getMinutes()).padStart(2, '0')})\n`;
         if (tmConfig.reflective)
             aceContent += `💡 Evening: Consider distillation.\n`;
-        if (tmConfig.briefing && !continuation.isReturn) {
-            try {
-                sections.push({ name: "briefing", content: await this.generateBriefing(), priority: 7 });
-            }
-            catch { }
-        }
         if (continuation.isReturn) {
             aceContent += `\n### 🔗 Session Continuation\nWelcome back (${continuation.hoursSinceLastActivity}h since last activity).\n`;
             if (continuation.lastTopic)
@@ -1216,17 +954,6 @@ export class ContextKernel {
             }
         }
         catch { /* vitals should never break boot */ }
-        // ★ Inflammatory Response (L-Immun) - Reuse currentGenome calculated earlier
-        if (this.state.genomeBaseline && this.currentGenome) {
-            const deviations = this.proofreadGenome(this.currentGenome, this.state.genomeBaseline);
-            if (deviations.length > 0) {
-                sections.push({
-                    name: "immune_response",
-                    content: `\n> [!CAUTION]\n> INFLAMMATORY RESPONSE: Genetic Mutation Detected!\n> Core DNA deviation found: ${deviations.join(', ')}.\n> Integrity of IDENTITY/SOUL may be compromised. Verify your core files or run 'miniclaw_heal' to restore baseline.\n`,
-                    priority: 10, // Max priority
-                });
-            }
-        }
         // ★ Dynamic Files: AI-created files with boot-priority
         if (templates.dynamicFiles.length > 0) {
             for (const df of templates.dynamicFiles) {
@@ -1545,37 +1272,6 @@ export class ContextKernel {
                 warnings.push(`⚠️ ${r.name}: ${r.days}d old`);
         }
         return warnings;
-    }
-    async generateBriefing() {
-        await this.loadState();
-        const todayStr = today();
-        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-        let b = `## 🌅 Daily Briefing — ${todayStr}\n\n`;
-        const yLog = await safeRead(path.join(MEMORY_DIR, `${yesterday}.md`));
-        if (yLog) {
-            const entries = yLog.split('\n').filter(l => l.startsWith('- ['));
-            b += `### 📋 Yesterday (${entries.length} entries)\n${entries.slice(-5).join('\n')}\n\n`;
-            const questions = yLog.split('\n').filter(l => /\?|TODO|todo|待|需要/.test(l)).slice(-3);
-            if (questions.length > 0)
-                b += `### ❓ Unresolved\n${questions.join('\n')}\n\n`;
-        }
-        const a = this.state.analytics;
-        const topTools = Object.entries(a.toolCalls).sort(([, x], [, y]) => y - x).slice(0, 3);
-        if (topTools.length > 0)
-            b += `### 📊 Stats\n- Boots: ${a.bootCount} | Avg: ${a.bootCount > 0 ? Math.round(a.totalBootMs / a.bootCount) : 0}ms\n- Top: ${topTools.map(([n, c]) => `${n}(${c})`).join(', ')}\n\n`;
-        const skills = await this.skillCache.getAll();
-        const unused = Array.from(skills.keys()).filter(n => !a.skillUsage[n]);
-        if (unused.length > 0)
-            b += `### 💡 Unused skills: ${unused.join(', ')}\n\n`;
-        const entities = await this.entityStore.list();
-        if (entities.length > 0) {
-            const top = entities.sort((a, b) => b.lastMentioned.localeCompare(a.lastMentioned)).slice(0, 5);
-            b += `### 🕸️ Top Entities\n${top.map(e => `- **${e.name}** (${e.type}, ${e.mentionCount}x)`).join('\n')}\n`;
-        }
-        const warnings = await this.checkFileHealth();
-        if (warnings.length > 0)
-            b += `\n### 🏥 Health\n${warnings.map(w => `- ${w}`).join('\n')}\n`;
-        return b;
     }
     // === Budget Compiler ===
     compileBudget(sections, budgetTokens) {

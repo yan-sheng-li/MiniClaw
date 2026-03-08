@@ -60,13 +60,7 @@ async function executeHeartbeat(): Promise<void> {
         // Fire onHeartbeat skill hooks
         try { await kernel.runSkillHooks("onHeartbeat"); } catch (e) { console.error(`[MiniClaw] Heartbeat hook error: ${e}`); }
 
-        // ★ Growth Drive: Check for growth urges
-        const growthUrge = await kernel.evaluateGrowthUrge();
-        if (growthUrge.urge !== 'none' && growthUrge.message) {
-            console.error(`[MiniClaw] ${growthUrge.message}`);
-            // Write to heartbeat file so user sees it next interaction
-            await kernel.writeToHeartbeat(`\n**Growth Urge (${growthUrge.urge}):** ${growthUrge.message}\n`);
-        }
+
 
         console.error(`[MiniClaw] Heartbeat completed.`);
 

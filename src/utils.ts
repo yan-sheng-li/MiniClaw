@@ -6,50 +6,6 @@
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
 
-// ─── Cron ────────────────────────────────────────────────────────────────────
-
-export function matchCronField(fieldExpr: string, value: number, max: number): boolean {
-    if (fieldExpr === "*") return true;
-
-    for (const part of fieldExpr.split(",")) {
-        // Range with step: "*/2", "1-10/3"
-        if (part.includes("/")) {
-            const [rangeStr, stepStr] = part.split("/");
-            const step = parseInt(stepStr, 10);
-            if (isNaN(step) || step <= 0) continue;
-
-            const [start, end] = rangeStr === "*"
-                ? [0, max]
-                : rangeStr.includes("-")
-                    ? rangeStr.split("-").map(Number)
-                    : [parseInt(rangeStr, 10), max];
-
-            for (let i = start; i <= end; i += step) {
-                if (i === value) return true;
-            }
-        }
-        // Range: "1-5"
-        else if (part.includes("-")) {
-            const [s, e] = part.split("-").map(Number);
-            if (value >= s && value <= e) return true;
-        }
-        // Single value: "5"
-        else if (parseInt(part, 10) === value) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-export function cronMatchesNow(expr: string, now: Date): boolean {
-    const f = expr.trim().split(/\s+/);
-    if (f.length < 5) return false;
-    return matchCronField(f[0], now.getMinutes(), 59) && matchCronField(f[1], now.getHours(), 23) &&
-        matchCronField(f[2], now.getDate(), 31) && matchCronField(f[3], now.getMonth() + 1, 12) &&
-        matchCronField(f[4], now.getDay(), 6);
-}
-
 // ─── Frontmatter ─────────────────────────────────────────────────────────────
 
 // #11: Hand-rolled YAML parser to maintain zero-dependency policy (no `yaml` or `js-yaml` lib).
