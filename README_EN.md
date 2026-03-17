@@ -135,7 +135,7 @@ The `templates/` directory contains the complete digital life genome. Each file 
 | **HEARTBEAT.md** | Pulse System | Background autonomous behavior instructions. Read by `heartbeat.sh` via macOS launchd and executed via `claude -p`. |
 | **BOOTSTRAP.md** | Embryonic Development | First-boot initialization protocol. Directory structure creation and template copying logic. |
 | **HORIZONS.md** | Evolution Blueprint | Long-term development roadmap. Records technologies to explore and future capability expansions. |
-| **SUBAGENT.md** | Cell Differentiation | Sub-agent creation specifications. Task decomposition and focused execution protocol definitions. |
+
 | **jobs.json** | Biological Clock | Scheduled task configuration. Cron-format periodic task scheduling table. |
 
 > **💡 Memory Principle**: After each conversation, MiniClaw writes key information to the corresponding chromosome file. On next startup, it loads all DNA via `miniclaw_read` to achieve "whole-brain wakeup."

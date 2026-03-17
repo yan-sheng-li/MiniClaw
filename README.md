@@ -166,7 +166,7 @@ MiniClaw 的 `templates/` 目录包含完整的数字生命基因组。每个文
 | **HEARTBEAT.md** | 脉搏系统 | 后台自主行为指令。由 macOS launchd 定期唤醒 `heartbeat.sh` 读取并通过 `claude -p` 执行。 |
 | **BOOTSTRAP.md** | 胚胎发育 | 首次启动的初始化协议。目录结构创建和模板复制逻辑。 |
 | **HORIZONS.md** | 进化蓝图 | 长期发展路线图。记录待探索的技术和未来的能力扩展方向。 |
-| **SUBAGENT.md** | 细胞分化 | 子代理创建规范。任务拆解和专注执行的协议定义。 |
+
 | **jobs.json** | 生物钟 | 定时任务配置。Cron 格式的周期性任务调度表。 |
 
 > **💡 记忆原理**：每次对话后，MiniClaw 会将关键信息写入对应的染色体文件。下次启动时通过 `miniclaw_read` 加载全部 DNA，实现"全脑唤醒"。
