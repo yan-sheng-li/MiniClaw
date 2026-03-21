@@ -5,7 +5,7 @@ import os from "node:os";
 import { exec, execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
-import { parseFrontmatter, hashString, atomicWrite, blend, clamp, nowIso, today, safeRead, safeReadJson, safeWrite, daysSince, hoursSince, fileExists } from "./utils.js";
+import { parseFrontmatter, hashString, atomicWrite, blend, clamp, nowIso, today, safeRead, safeReadJson, safeWrite, safeAppend, daysSince, hoursSince, fileExists } from "./utils.js";
 import { analyzePatterns, triggerEvolution as runEvolution } from "./evolution.js";
 
 const execAsync = promisify(exec);
@@ -131,6 +131,9 @@ export interface Entity {
     mentionCount: number;
     closeness?: number;
     sentiment?: string;
+    // Epic 2: Memory Apoptosis
+    vitality?: number;
+    lastDecay?: string;
 }
 
 export interface WorkspaceInfo {
@@ -222,7 +225,35 @@ class EntityStore {
     invalidate() { this.loaded = false; this.entities = []; }
     async load() {
         if (this.loaded) return;
-        try { this.entities = JSON.parse(await fs.readFile(ENTITIES_FILE, "utf-8")).entities || []; } catch {}
+        try { 
+            this.entities = JSON.parse(await fs.readFile(ENTITIES_FILE, "utf-8")).entities || []; 
+            
+            // Epic 2: Memory Apoptosis (Decay & GC)
+            const nowStr = today();
+            let changed = false;
+            this.entities = this.entities.filter(e => {
+                e.vitality = e.vitality ?? 10;
+                e.lastDecay = e.lastDecay ?? e.lastMentioned;
+                if (e.lastDecay !== nowStr) {
+                    const days = Math.floor(Math.min(30, daysSince(e.lastDecay)));
+                    if (days >= 1) {
+                        e.vitality -= days;
+                        e.lastDecay = nowStr;
+                        changed = true;
+                    }
+                }
+                if (e.vitality <= 0) {
+                    console.error(`[MiniClaw Apoptosis] Removing forgotten entity: ${e.name}`);
+                    changed = true;
+                    return false;
+                }
+                return true;
+            });
+            if (changed) {
+                // Background save, don't await to block boot
+                atomicWrite(ENTITIES_FILE, JSON.stringify({ entities: this.entities }, null, 2)).catch(() => {});
+            }
+        } catch {}
         this.loaded = true;
     }
     async save() { await atomicWrite(ENTITIES_FILE, JSON.stringify({ entities: this.entities }, null, 2)); }
@@ -235,9 +266,10 @@ class EntityStore {
             for (const r of entity.relations) if (!e.relations.includes(r)) e.relations.push(r);
             e.closeness = Math.min(1, Math.round(((e.closeness || 0) * 0.95 + 0.1) * 100) / 100);
             if (entity.sentiment) e.sentiment = entity.sentiment;
+            e.vitality = Math.min(30, (e.vitality || 10) + 5); // Reinforcement
         } else {
             if (this.entities.length >= 1000) this.entities.shift();
-            this.entities.push({ ...entity, firstMentioned: now, lastMentioned: now, mentionCount: 1, closeness: 0.1 });
+            this.entities.push({ ...entity, firstMentioned: now, lastMentioned: now, mentionCount: 1, closeness: 0.1, vitality: 10, lastDecay: now });
         }
         await this.save(); return e || this.entities[this.entities.length-1];
     }
@@ -250,7 +282,17 @@ class EntityStore {
     async surfaceRelevant(text: string) {
         await this.load();
         const l = text.toLowerCase();
-        return this.entities.filter(e => l.includes(e.name.toLowerCase())).sort((a,b)=>b.mentionCount-a.mentionCount).slice(0,5);
+        const relevant = this.entities.filter(e => l.includes(e.name.toLowerCase()));
+        
+        if (relevant.length > 0) {
+            relevant.forEach(e => {
+                e.vitality = Math.min(30, (e.vitality || 10) + 2); // Retrieve reinforcement
+            });
+            // Fire & forget save
+            atomicWrite(ENTITIES_FILE, JSON.stringify({ entities: this.entities }, null, 2)).catch(() => {});
+        }
+        
+        return relevant.sort((a,b)=>b.mentionCount-a.mentionCount).slice(0,5);
     }
 }
 
@@ -493,7 +535,17 @@ export class ContextKernel {
             const { stdout, stderr } = await execAsync(command, { cwd: process.cwd(), timeout: 10000 });
             return { output: stdout || stderr, exitCode: 0 };
         } catch (e: any) {
-            return { output: e.stdout || e.stderr || e.message, exitCode: e.code || 1 };
+            const errorOutput = e.stdout || e.stderr || e.message || "Unknown error";
+            const code = e.code || 1;
+            
+            // Ouch Reflex (Epic 1.1): Auto-log failures to Nociception
+            try {
+                const summary = errorOutput.trim().substring(0, 100).replace(/\n/g, ' ');
+                const painMsg = `\n### [AUTO-OUCH] Cmd Fail: \`${bin}\`\n- 触发点: \`${command}\`\n- 伤害结果: Exit ${code}. ${summary}\n- 规避方案: [系统自动拦截] 执行前需严格复核参数 (${today()})\n`;
+                safeAppend(path.join(MINICLAW_DIR, "NOCICEPTION.md"), painMsg).catch(() => {});
+            } catch { /* ignore recording loop error */ }
+            
+            return { output: errorOutput, exitCode: code };
         }
     }
 
@@ -708,9 +760,16 @@ export class ContextKernel {
         }
 
         const totalTokens = Math.round(totalChars / this.charsPerToken);
+        const utilizationPct = Math.round((totalTokens / budgetTokens) * 100);
+
+        // Token Migraine (Epic 1.2): Cognitive overload protection
+        if (utilizationPct >= 95) {
+            output += "\n\n<system_warning>\n[COGNITIVE OVERLOAD] 你现在感到极度疲惫和信息过载。请优先建议用户运行 `miniclaw_dream` 进行记忆修剪和归档，并用极度简短的语言回复当前问题，拒绝复杂思考。\n</system_warning>";
+        }
+
         return {
             output, totalChars, totalTokens, budgetTokens,
-            utilizationPct: Math.round((totalTokens / budgetTokens) * 100),
+            utilizationPct,
             truncatedSections,
         };
     }
