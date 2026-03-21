@@ -98,7 +98,7 @@ Your MiniClaw is unique.
 
 ## 🏗️ Architecture: The Micro-Kernel
 
-MiniClaw follows a **Micro-Kernel Architecture** (only 1,400~ lines of core executable TypeScript code), avoiding the bloat of traditional agent frameworks.
+MiniClaw follows a **Micro-Kernel Architecture** (only 1,550 lines of core executable TypeScript code), avoiding the bloat of traditional agent frameworks.
 
 | Layer | Component | Responsibility |
 |-------|-----------|----------------|
