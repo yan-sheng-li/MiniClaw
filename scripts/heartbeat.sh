@@ -38,6 +38,12 @@ NC='\033[0m'
 ok()   { echo -e "${GREEN}✓${NC} $1"; }
 warn() { echo -e "${YELLOW}⚠${NC} $1"; }
 
+# macOS system notification helper
+notify() {
+    local msg="$1" title="${2:-MiniClaw}"
+    osascript -e "display notification \"$msg\" with title \"$title\" sound name \"Glass\"" 2>/dev/null || true
+}
+
 # =============================================================================
 # HEARTBEAT — Read HEARTBEAT.md and execute via `claude -p` (every 30 min)
 #
@@ -84,8 +90,13 @@ cmd_heartbeat() {
     prompt=$(cat "$HEARTBEAT_FILE")
 
     $CLI_CMD $CLI_ARGS "$prompt" >> "$HEARTBEAT_LOG" 2>&1 \
-        && echo "[$(date)] Heartbeat completed ($CLI_CMD)." >> "$HEARTBEAT_LOG" \
-        || echo "[$(date)] Heartbeat failed ($CLI_CMD)." >> "$HEARTBEAT_LOG"
+        && { echo "[$(date)] Heartbeat completed ($CLI_CMD)." >> "$HEARTBEAT_LOG"; notify "心跳完成 ✓" "MiniClaw"; } \
+        || { echo "[$(date)] Heartbeat failed ($CLI_CMD)." >> "$HEARTBEAT_LOG"; notify "⚠️ 心跳异常，请检查日志" "MiniClaw"; }
+
+    # If HEARTBEAT.md mentions distillation, hint the user
+    if grep -qi 'distill\|蒸馏\|dream' "$HEARTBEAT_FILE" 2>/dev/null; then
+        notify "💭 建议运行 miniclaw_dream 进行记忆蒸馏" "MiniClaw·成长提示"
+    fi
 }
 
 # =============================================================================
@@ -111,8 +122,21 @@ cmd_install() {
         <string>$SCRIPT_DIR/heartbeat.sh</string>
         <string>_heartbeat</string>
     </array>
-    <key>StartInterval</key>
-    <integer>1800</integer>
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict>
+            <key>Hour</key><integer>9</integer>
+            <key>Minute</key><integer>0</integer>
+        </dict>
+        <dict>
+            <key>Hour</key><integer>14</integer>
+            <key>Minute</key><integer>0</integer>
+        </dict>
+        <dict>
+            <key>Hour</key><integer>21</integer>
+            <key>Minute</key><integer>0</integer>
+        </dict>
+    </array>
     <key>StandardOutPath</key>
     <string>$HEARTBEAT_LOG</string>
     <key>StandardErrorPath</key>
@@ -129,14 +153,14 @@ EOF
 
     launchctl unload "$HEARTBEAT_PLIST_SYMLINK" 2>/dev/null || true
     launchctl load "$HEARTBEAT_PLIST_SYMLINK"
-    ok "Loaded heartbeat agent (runs every 30 minutes)"
+    ok "Loaded heartbeat agent (runs at 09:00, 14:00, 21:00 daily)"
 
     echo ""
     echo -e "${GREEN}Installation complete!${NC}"
     echo ""
-    echo "  Heartbeat : every 30 min — reads $HEARTBEAT_FILE"
+    echo "  Heartbeat : 09:00 / 14:00 / 21:00 — reads $HEARTBEAT_FILE"
     echo "  Log       : $HEARTBEAT_LOG"
-    echo "  Note      : Scheduled jobs (jobs.json) are handled by kernel.ts"
+    echo "  Notify    : macOS system notifications via osascript"
     echo ""
     echo "To uninstall: $0 uninstall"
 }

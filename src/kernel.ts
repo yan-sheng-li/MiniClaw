@@ -413,7 +413,9 @@ export class ContextKernel {
                 const key = k.toLowerCase() as keyof typeof tmpl;
                 add(`${k}.md`, tmpl[key] ? this.formatFile(`${k}.md`, tmpl[key] as string) : undefined, 9);
             }),
-            () => ws && add("workspace", `## Workspace: ${ws.name}\nGit: ${ws.git.branch}`, 6),
+            () => ws && add("workspace", `## Workspace: ${ws.name}\nGit: ${ws.git.branch}${
+                (ws as any).recentFiles?.length ? `\nRecent files: ${(ws as any).recentFiles.join(', ')}` : ''
+            }`, 6),
             () => add("MEMORY.md", tmpl.memory ? `## Memory\n${this.formatFile("MEMORY.md", tmpl.memory)}` : undefined, 7),
             () => {
                 const ss = Array.from(skills.entries());
@@ -426,6 +428,18 @@ export class ContextKernel {
             () => add("HEARTBEAT.md", tmpl.heartbeat ? `## Heartbeat\n${tmpl.heartbeat}` : undefined, 4),
             () => add("daily_log", mem.todayContent ? `## Daily Log\n${mem.todayContent}` : undefined, 3),
         ];
+
+        // macOS: Battery awareness (non-blocking, best-effort)
+        try {
+            const { stdout: battRaw } = await execAsync('pmset -g batt 2>/dev/null | head -2', { timeout: 1000 });
+            const pct = battRaw.match(/(\d+)%/)?.[1];
+            const charging = battRaw.includes('AC Power') || battRaw.includes('charging');
+            if (pct) {
+                const battMsg = `⚡ Battery: ${pct}% (${charging ? 'charging' : 'on battery'})`;
+                const warn = !charging && parseInt(pct) < 20 ? ' ⚠️ LOW — avoid heavy tasks' : '';
+                add("battery", `## System\n${battMsg}${warn}`, 4);
+            }
+        } catch { /* macOS only, fail silently */ }
 
         providers.forEach(p => p());
 
@@ -444,9 +458,13 @@ export class ContextKernel {
     // === EXEC: Safe Command Execution ===
 
     async execCommand(command: string): Promise<{ output: string; exitCode: number }> {
-        const allowed = ['git', 'ls', 'cat', 'find', 'grep', 'npm', 'node', 'python', 'pip', 'cargo'];
+        const allowed = ['git', 'ls', 'cat', 'find', 'grep', 'npm', 'node', 'python', 'pip', 'cargo',
+            'pbpaste', 'mdfind', 'open', 'pmset'];
         const bin = path.basename(command.split(' ')[0]);
-        if (!allowed.includes(bin) || /[;|&`$(){}\\<>!]/.test(command) || command.includes('..')) 
+        // Block destructive meta-chars; 'open' only allowed without -W (blocking) flag for safety
+        const isOpen = bin === 'open';
+        if (!allowed.includes(bin) || /[;|&`$(){}\\<>!]/.test(command) || command.includes('..') ||
+            (isOpen && /(-W|-a\s+\/System|-R\s+\/System)/.test(command)))
             throw new Error("Security violation");
 
         try {
@@ -583,6 +601,16 @@ export class ContextKernel {
             const { stdout: log } = await execAsync('git log --oneline -3', { cwd });
             info.git.recentCommits = log.trim();
         } catch { /* not a git repo */ }
+
+        // 3. Recent Files via mdfind (macOS Spotlight)
+        try {
+            const { stdout: recentFiles } = await execAsync(
+                `mdfind -onlyin "${cwd}" "kMDItemFSContentChangeDate > $time.now(-3600)" 2>/dev/null | head -5`,
+                { timeout: 2000 }
+            );
+            const files = recentFiles.trim().split('\n').filter(Boolean).map(f => path.basename(f));
+            if (files.length > 0) (info as any).recentFiles = files;
+        } catch { /* mdfind unavailable or no results */ }
 
         return info;
     }
