@@ -631,7 +631,7 @@ export class ContextKernel {
         }
     }
     async loadTemplates() {
-        const names = ["AGENTS.md", "SOUL.md", "IDENTITY.md", "USER.md", "HORIZONS.md", "CONCEPTS.md", "TOOLS.md", "MEMORY.md", "HEARTBEAT.md", "BOOTSTRAP.md", "SUBAGENT.md", "REFLECTION.md", "NOCICEPTION.md"];
+        const names = ["AGENTS.md", "SOUL.md", "IDENTITY.md", "USER.md", "HORIZONS.md", "CONCEPTS.md", "TOOLS.md", "MEMORY.md", "HEARTBEAT.md", "BOOTSTRAP.md", "REFLECTION.md"];
         const results = await Promise.all(names.map(name => safeRead(path.join(MINICLAW_DIR, name))));
         const dynamicFiles = [];
         try {
@@ -648,7 +648,7 @@ export class ContextKernel {
         return {
             agents: results[0], soul: results[1], identity: results[2],
             user: results[3], horizons: results[4], concepts: results[5], tools: results[6], memory: results[7],
-            heartbeat: results[8], bootstrap: results[9], subagent: results[10], reflection: results[11],
+            heartbeat: results[8], bootstrap: results[9], reflection: results[10],
             dynamicFiles
         };
     }

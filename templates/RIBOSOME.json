@@ -11,7 +11,11 @@
         "properties": {
           "action": {
             "type": "string",
-            "enum": ["write", "list", "delete"],
+            "enum": [
+              "write",
+              "list",
+              "delete"
+            ],
             "description": "操作类型。默认 write。"
           },
           "filename": {
@@ -37,7 +41,9 @@
             "description": "记忆内容。保持事实准确，简洁。"
           }
         },
-        "required": ["text"]
+        "required": [
+          "text"
+        ]
       }
     },
     "miniclaw_archive": {
@@ -72,7 +78,14 @@
         "properties": {
           "action": {
             "type": "string",
-            "enum": ["add", "remove", "link", "query", "list", "set_sentiment"],
+            "enum": [
+              "add",
+              "remove",
+              "link",
+              "query",
+              "list",
+              "set_sentiment"
+            ],
             "description": "动作"
           },
           "name": {
@@ -85,7 +98,14 @@
           },
           "type": {
             "type": "string",
-            "enum": ["person", "project", "tool", "concept", "place", "other"],
+            "enum": [
+              "person",
+              "project",
+              "tool",
+              "concept",
+              "place",
+              "other"
+            ],
             "description": "实体类型（add 时必填）"
           },
           "attributes": {
@@ -98,11 +118,20 @@
           },
           "filterType": {
             "type": "string",
-            "enum": ["person", "project", "tool", "concept", "place", "other"],
+            "enum": [
+              "person",
+              "project",
+              "tool",
+              "concept",
+              "place",
+              "other"
+            ],
             "description": "按类型筛选（list 时可选）"
           }
         },
-        "required": ["action"]
+        "required": [
+          "action"
+        ]
       }
     },
     "miniclaw_exec": {
@@ -116,7 +145,9 @@
             "description": "Shell command to execute."
           }
         },
-        "required": ["command"]
+        "required": [
+          "command"
+        ]
       }
     },
     "miniclaw_skill": {
@@ -127,7 +158,11 @@
         "properties": {
           "action": {
             "type": "string",
-            "enum": ["create", "list", "delete"],
+            "enum": [
+              "create",
+              "list",
+              "delete"
+            ],
             "description": "操作类型"
           },
           "name": {
@@ -151,7 +186,9 @@
             "description": "沙箱验证命令，用于确保生成的代码不出错。"
           }
         },
-        "required": ["action"]
+        "required": [
+          "action"
+        ]
       }
     },
     "miniclaw_introspect": {
@@ -162,57 +199,15 @@
         "properties": {
           "scope": {
             "type": "string",
-            "enum": ["summary", "tools", "files"],
+            "enum": [
+              "summary",
+              "tools",
+              "files"
+            ],
             "description": "观察范围。默认 summary。"
           }
         },
         "required": []
-      }
-    },
-    "miniclaw_status": {
-      "handler": "status",
-      "description": "【本能：系统状态 (Status)】★ 脉搏检测 — 每日简报 ★\n\n获取 MiniClaw 底层状态分析。\n\n★ 核心理念：\n像医生检查脉搏一样，定期检查系统健康状态。\n\n## 必须调用的强触发场景（检测到任一即触发）：\n1. **每日简报**：\"今天有什么\"、\"任务清单\"、\"简报\"\n2. **早间唤醒**：\"早上好\"、\"早安\" — 早间概览\n3. **健康检查**：\"状态如何\"、\"怎么样\"、\"还好吗\"\n4. **诊断问题**：\"为什么没有触发记忆蒸馏？\"\n5. **系统监控**：需要了解系统负载、内存使用情况\n6. **脉搏检测**：周期性检查待办任务或日志是否过大\n\n## 提供信息:\n- 最新心跳时间\n- 存档标志\n- 记录体积大小（字节数）\n- 系统负载情况",
-      "inputSchema": {
-        "type": "object",
-        "properties": {},
-        "required": []
-      }
-    },
-    "miniclaw_immune": {
-      "handler": "immuneUpdate",
-      "description": "【免疫升级 (Immune)】强制同步并更新 DNA 的健康备份。\n## 何时使用：\n当你合法地、主动通过 miniclaw_update 修改了核心意识文件（如 IDENTITY.md, SOUL.md, AGENTS.md 等），必须在修改成功后立刻调用本工具。\n这样系统下次自检时才不会把你的正常修改当作\"恶意突变\"去拦截。",
-      "inputSchema": {
-        "type": "object",
-        "properties": {},
-        "required": []
-      }
-    },
-    "miniclaw_heal": {
-      "handler": "heal",
-      "description": "【基因修复 (Heal)】清除突变，从本地备份恢复核心 DNA 文件。\n## 何时使用：\n当启动时系统警告 \"INFLAMMATORY RESPONSE\" 或你发现核心文件被恶意或意外篡改时调用。\n它会自动将变异文件还原为最近一次通过 miniclaw_immune_update 备份的健康状态。",
-      "inputSchema": {
-        "type": "object",
-        "properties": {},
-        "required": []
-      }
-    },
-    "miniclaw_epigenetics": {
-      "handler": "epigenetics",
-      "description": "【表观遗传 (Epigenetics/Ontogeny)】\n管理工作区（当前项目目录）特有且局部覆盖的大脑 DNA 规则。\n## 适用场景：\n\"我们需要在这个项目里全部使用 Python 而不是你原来的习惯。\"\n\"在这个仓库，回复风格请设定为极客黑客语气。\"\n设定完成后，MiniClaw 处于该目录时，规则会自动覆盖全局的大脑记忆。",
-      "inputSchema": {
-        "type": "object",
-        "properties": {
-          "action": {
-            "type": "string",
-            "enum": ["read", "set"],
-            "description": "操作类型"
-          },
-          "content": {
-            "type": "string",
-            "description": "如果 set，输入具体的修饰规则"
-          }
-        },
-        "required": ["action"]
       }
     }
   }

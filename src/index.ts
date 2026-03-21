@@ -351,6 +351,31 @@ const HANDLERS: Record<string, (args: any) => Promise<any>> = {
         return errorResult("Unknown action");
     },
 
+    "miniclaw_dream": async () => {
+        const context = await getContextContent("full");
+        const a = await kernel.getAnalytics();
+        const top = Object.entries(a.toolCalls).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([t, c]) => `${t}(${c}x)`).join(', ');
+        return textResult([
+            `# 💤 Dream Protocol Activated`,
+            ``,
+            `**Context loaded.** Review the following context and perform deep meaning distillation:`,
+            ``,
+            `## Recent Behavioral Data`,
+            `- Top tools: ${top}`,
+            `- Boot count: ${a.bootCount}`,
+            `- Last activity: ${a.lastActivity || 'unknown'}`,
+            ``,
+            `## Your Dream Task`,
+            `1. Review the loaded context above for patterns and insights`,
+            `2. Extract **meaning** (not just facts) from recent interactions`,
+            `3. Identify growth moments, mistakes, and lessons`,
+            `4. Write breakthrough insights to **REFLECTION.md** via miniclaw_update`,
+            `5. If you discovered new user preferences, update **USER.md**`,
+            ``,
+            `> Begin your dream sequence now. What does your recent experience reveal?`,
+        ].join('\n'));
+    },
+
     "miniclaw_exec": async (args) => textResult((await kernel.execCommand(args.command)).output),
 
     "miniclaw_skill": async (args) => {
