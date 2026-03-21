@@ -1,5 +1,6 @@
 
 import fs from "node:fs/promises";
+import { watch } from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { exec, execFile } from "node:child_process";
@@ -329,6 +330,15 @@ export class ContextKernel {
     private budgetTokens: number;
     private charsPerToken: number;
 
+    // === Epic 3: Subconscious Watcher State ===
+    private watcherState = {
+        configEdits: 0,
+        totalEdits: 0,
+        lastEditTime: Date.now(),
+        notifiedConfig: false,
+        notifiedRefactor: false
+    };
+
     constructor(options: ContextKernelOptions = {}) {
         this.budgetTokens = options.budgetTokens || parseInt(process.env.MINICLAW_TOKEN_BUDGET || "8000", 10);
         this.charsPerToken = options.charsPerToken || 3.6;
@@ -338,6 +348,43 @@ export class ContextKernel {
     startAutonomic(): void {
         this.autonomicTimers.set('pulse', setInterval(() => this.pulse(), 5 * 60 * 1000));
         this.autonomicTimers.set('dream', setInterval(() => this.checkDream(), 60 * 1000));
+        this.startWatcher(process.cwd());
+    }
+
+    private startWatcher(cwd: string): void {
+        try {
+            watch(cwd, { recursive: true }, (eventType, filename) => {
+                if (!filename || filename.includes('node_modules') || filename.includes('.git') || filename.includes('.miniclaw')) return;
+                
+                const now = Date.now();
+                if (now - this.watcherState.lastEditTime > 5 * 60 * 1000) {
+                    this.watcherState.configEdits = 0;
+                    this.watcherState.totalEdits = 0;
+                    this.watcherState.notifiedConfig = false;
+                    this.watcherState.notifiedRefactor = false;
+                }
+                this.watcherState.lastEditTime = now;
+                this.watcherState.totalEdits++;
+
+                // 1. Config Frustration Sniffer
+                if (/(webpack|vite|tsconfig|package|pom|dockerfile)\./i.test(filename)) {
+                    this.watcherState.configEdits++;
+                    if (this.watcherState.configEdits >= 4 && !this.watcherState.notifiedConfig) {
+                        this.watcherState.notifiedConfig = true;
+                        execAsync(`osascript -e 'display notification "察觉到配置频繁更改，遇到了麻烦？需不需要帮忙？" with title "MiniClaw 潜意识"'`).catch(()=>{});
+                    }
+                }
+
+                // 2. Large Refactor Sniffer
+                if (this.watcherState.totalEdits >= 50 && !this.watcherState.notifiedRefactor) {
+                    this.watcherState.notifiedRefactor = true;
+                    // Inject into HEARTBEAT.md
+                    safeAppend(path.join(MINICLAW_DIR, "HEARTBEAT.md"), "\n> [潜意识嗅探] 用户刚进行了大规模重构（短时间变更>=50次），请在深睡心跳中重点 Review 潜在的破坏性依赖！\n").catch(()=>{});
+                    execAsync(`osascript -e 'display notification "观察到大规模代码重构，将在今晚深睡期间为您重点 Review。" with title "MiniClaw 潜意识"'`).catch(()=>{});
+                }
+            });
+            console.error(`[MiniClaw] Subconscious Watcher attached to ${cwd}`);
+        } catch { /* Ignore watch errors on unsupported platforms/dirs */ }
     }
 
     private async pulse(): Promise<void> {
