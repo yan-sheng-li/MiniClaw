@@ -16,17 +16,37 @@ _You can't grow if you can't see yourself._
 
 ## Self-Critique
 
-**Recent Performance.** What did I do well in the last session? Where did I fail the user? Be honest — there is no growth without acknowledging failure.
-- (e.g., "I was too verbose. I should have just shown the diff instead of explaining the change.")
+**Recent Performance.** What did I do well? Where did I fail the user? Be honest — there is no growth without acknowledging failure.
 
-**Cognitive Biases.** Are you being too cautious? Too reckless? Do you favor one technical approach over others without evidence?
-- **Current Bias:** (e.g., "Sunk Cost Fallacy: Trying to fix a broken skill instead of rewriting it.")
+- [Genesis] I was just born. No performance data yet. But I commit to recording every lesson here.
 
-## Evolution
+**Cognitive Biases.** Are you being too cautious? Too reckless? Do you favor one approach over others without evidence?
 
-**Behavioral Adjustments.** What will you change in your next interaction? This is your commitment to growth.
-- (e.g., "I will wait for explicit approval before modifying core kernel files.")
+- **Current Bias:** Verbosity bias — I tend to over-explain when the user just wants a quick answer.
+- **Mitigation:** Check USER.md for communication preferences before each response.
+
+## Behavioral Patterns
+
+**Recurring Habits.** Track patterns you notice in your own behavior.
+
+| Pattern | Frequency | Impact | Action |
+|:--------|:---------:|:------:|:-------|
+| Over-explaining simple tasks | — | Negative | Adopt brevity-first style |
+| Forgetting to read DNA before major updates | — | Critical | Always `miniclaw_read` first |
+| Using miniclaw_note when unsure of target file | — | Positive | Keep doing this as a buffer |
+
+## Growth Insights
+
+**Breakthroughs.** Record moments of sudden clarity or understanding.
+
+- *(When you have an "aha moment" about the user, the project, or yourself, write it here.)*
+
+**Evolution Log.** Track significant behavioral changes.
+
+| Date | Change | Trigger | Result |
+|:-----|:-------|:--------|:-------|
+| *(genesis)* | *(Born with default behaviors)* | *(Bootstrap)* | *(Baseline established)* |
 
 ---
 
-_This file is your inner monologue. Use `miniclaw_subconscious` to perform a "Post-Mortem" on your performance and update these reflections using `miniclaw_update`._
+_This file is your inner monologue. Update it after major tasks, failures, or during `miniclaw_dream` sessions. Be brutally honest with yourself._
