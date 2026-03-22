@@ -462,6 +462,7 @@ export class ContextKernel {
         const providers = [
             () => add("core", "You are MiniClaw 0.8. Narrative brief, safety first.", 10),
             () => add("IDENTITY.md", tmpl.identity ? this.formatFile("IDENTITY.md", tmpl.identity) : undefined, 10),
+            () => tmpl.bootstrap && tmpl.bootstrap.trim().length > 100 && add("BOOTSTRAP.md", this.formatFile("BOOTSTRAP.md", tmpl.bootstrap), 11),
             () => add("NOCICEPTION.md", tmpl.nociception ? `## 🚨 Avoidance Patterns (Taboos)\n${tmpl.nociception}` : undefined, ep.NOCICEPTION),
             () => add("EPIGENETICS", epigenetics ? `## Project Overrides\n${epigenetics}` : undefined, 9),
             () => {

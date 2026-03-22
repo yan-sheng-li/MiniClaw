@@ -228,7 +228,7 @@ Edit `~/.miniclaw/jobs.json` directly, or ask in conversation:
 A: All memory and configuration lives in `~/.miniclaw/` on your local machine. Nothing is sent to any cloud (except LLM requests via your editor).
 
 **Q: Can I use it on Windows?**
-A: Yes. The code uses cross-platform path handling (`os.homedir()`, `path.join()`).
+A: Yes. The code uses cross-platform path handling (`os.homedir()`, `path.join()`). **However, please note that advanced features such as environmental sensing (DND/IDE detection), battery awareness, and background logic are currently only fully unlocked on macOS.**
 
 **Q: Is it safe?**
 A: Yes. The `miniclaw_exec` tool has a strict whitelist of allowed commands. It cannot delete files or access system root.
