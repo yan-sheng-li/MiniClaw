@@ -56,6 +56,13 @@ Just add this to your **Claude CoWork**, **Qoderwork**, or **WorkBuddy** MCP con
 
 On the first run, MiniClaw will download itself and initialize its memory in `~/.miniclaw`.
 
+### 🌙 Optional: Enable Subconscious Daemon (macOS Only)
+If you want MiniClaw to autonomously review and distill memories during the night even when your editor is closed, you need to execute one additional command to install the background resident script (if you used the `npx` zero-install method above, you don't have the script locally, but you can download and run it directly via curl):
+
+```bash
+curl -sO https://raw.githubusercontent.com/8421bit/MiniClaw/main/scripts/heartbeat.sh && chmod +x heartbeat.sh && ./heartbeat.sh install
+```
+
 ### 🎉 First Encounter
 
 1.  **Restart your editor** (Claude Desktop / Cursor).

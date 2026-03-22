@@ -56,6 +56,13 @@
 
 初次运行时，MiniClaw 会自动下载最新版，在 `~/.miniclaw` 初始化记忆。
 
+### 🌙 可选：启用潜意识守护进程 (仅 macOS)
+如果你希望即使用户关闭了代码编辑器，MiniClaw 也能在深夜自动帮你复盘和整理记忆，你需要额外执行一行命令来安装后台驻留脚本（如果你是使用上述 `npx` 零安装的方法，你本地没有脚本文件，可以直接通过 curl 下载并执行）：
+
+```bash
+curl -sO https://raw.githubusercontent.com/8421bit/MiniClaw/main/scripts/heartbeat.sh && chmod +x heartbeat.sh && ./heartbeat.sh install
+```
+
 ### 🎉 首次唤醒 (First Encounter)
 
 1.  **重启编辑器** (Claude Desktop / Cursor)。
@@ -186,7 +193,7 @@ MiniClaw 的 `templates/` 目录包含完整的数字生命基因组。每个文
 
 ---
 
-## 🛠️ 本地安装与守护进程 (Local Install & Daemon)
+## 🛠️ 手动安装
 
 虽然你可以通过 `npx` 零安装使用 MiniClaw 作为普通的 MCP 插件，但如果你想解锁**真正的自主后台潜意识**（即使关闭了代码编辑器，MiniClaw 也能在深夜自动帮你复盘和整理记忆），你需要进行本地部署并安装守护进程 (仅限 macOS)。
 
