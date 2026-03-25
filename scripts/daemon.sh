@@ -41,31 +41,26 @@ ok()   { echo -e "${GREEN}✓${NC} $1"; }
 warn() { echo -e "${YELLOW}⚠${NC} $1"; }
 
 # =============================================================================
-# Core Resolution (Source Mode vs Global Mode)
+# Core Resolution (Source Mode vs NPX Mode)
 # =============================================================================
-resolve_daemon_path() {
+resolve_daemon_cmd() {
     if [ -f "$ROOT_DIR/package.json" ]; then
         # Developer / Clone Mode
         echo "Source mode detected. Building project..."
         cd "$ROOT_DIR"
         npm install > /dev/null 2>&1 || true
         npm run build > /dev/null
-        DAEMON_JS_PATH="$ROOT_DIR/dist/daemon.js"
+        
+        DAEMON_EXEC="$(which node)"
+        DAEMON_ARGS=("$ROOT_DIR/dist/index.js" "--daemon")
         NODE_CWD="$ROOT_DIR"
     else
         # Zero-Install / NPX Mode
-        echo "Standalone mode detected at $SCRIPT_DIR."
-        echo "Installing/Updating miniclaw globally..."
-        npm install -g github:8421bit/miniclaw > /dev/null
-        
-        GLOBAL_ROOT="$(npm root -g)"
-        DAEMON_JS_PATH="$GLOBAL_ROOT/miniclaw/dist/daemon.js"
-        NODE_CWD="$GLOBAL_ROOT/miniclaw"
-        
-        if [ ! -f "$DAEMON_JS_PATH" ]; then
-            echo -e "${RED}Error: Failed to locate global miniclaw installation at $DAEMON_JS_PATH${NC}"
-            exit 1
-        fi
+        echo "Zero-Install mode detected."
+        # Use npx to run the daemon directly from cache without polluting global node_modules
+        DAEMON_EXEC="$(which npx)"
+        DAEMON_ARGS=("--yes" "github:8421bit/miniclaw" "--daemon")
+        NODE_CWD="$HOME"
     fi
 }
 
@@ -76,8 +71,13 @@ cmd_install() {
     echo "Installing MiniClaw Autonomous Daemon (LaunchAgent)..."
     mkdir -p "$LAUNCH_AGENTS_DIR" "$MINICLAW_LAUNCHD_DIR" "$LOG_DIR"
     
-    resolve_daemon_path
-    ok "Resolved daemon path: $DAEMON_JS_PATH"
+    resolve_daemon_cmd
+
+    # Create array strings for plist
+    PLIST_ARGS="<string>$DAEMON_EXEC</string>"
+    for arg in "${DAEMON_ARGS[@]}"; do
+        PLIST_ARGS="$PLIST_ARGS\n        <string>$arg</string>"
+    done
 
     cat > "$DAEMON_PLIST_FILE" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -89,8 +89,7 @@ cmd_install() {
     <string>$DAEMON_PLIST_ID</string>
     <key>ProgramArguments</key>
     <array>
-        <string>$(which node)</string>
-        <string>$DAEMON_JS_PATH</string>
+        $(echo -e "$PLIST_ARGS")
     </array>
     <key>WorkingDirectory</key>
     <string>$NODE_CWD</string>
@@ -132,10 +131,10 @@ cmd_uninstall() {
 cmd_start() {
     echo "Starting MiniClaw Daemon (nohup)..."
     mkdir -p "$LOG_DIR"
-    resolve_daemon_path
+    resolve_daemon_cmd
     
     cd "$NODE_CWD"
-    nohup node "$DAEMON_JS_PATH" >> "$DAEMON_LOG" 2>&1 &
+    nohup "$DAEMON_EXEC" "${DAEMON_ARGS[@]}" >> "$DAEMON_LOG" 2>&1 &
     echo $! > "$DAEMON_PID_FILE"
     ok "Daemon started (PID: $(cat "$DAEMON_PID_FILE"))"
 }
@@ -164,9 +163,9 @@ cmd_status() {
     fi
     
     # 2. Check nohup
-    pgrep -f "node dist/daemon.js" > /dev/null \
-        && ok  "Node Process      : RUNNING" \
-        || warn "Node Process      : STOPPED"
+    pgrep -f "miniclaw.*--daemon|node.*index.js.*--daemon" > /dev/null \
+        && ok  "Background Process: RUNNING" \
+        || warn "Background Process: STOPPED"
         
     echo ""
     echo "Recent daemon log ($DAEMON_LOG):"
@@ -175,8 +174,12 @@ cmd_status() {
 
 cmd_pulse() {
     echo "Forcing manual cognitive pulse..."
-    cd "$ROOT_DIR"
-    node -e "import { ContextKernel } from './dist/kernel.js'; const k = new ContextKernel(); k.heartbeat().then(() => process.exit(0)).catch(err => { console.error(err); process.exit(1); });"
+    if [ -f "$ROOT_DIR/package.json" ]; then
+        cd "$ROOT_DIR"
+        node -e "import { ContextKernel } from './dist/kernel.js'; const k = new ContextKernel(); k.heartbeat().then(() => process.exit(0)).catch(err => { console.error(err); process.exit(1); });"
+    else
+        echo "Interactive pulse not supported in pure NPX mode. Refer to logs."
+    fi
 }
 
 # =============================================================================

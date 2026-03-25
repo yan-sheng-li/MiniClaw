@@ -497,9 +497,29 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
 });
 
-await bootstrapMiniClaw();
-await ensureAgentsRedirect();
-await kernel.startAutonomic();
+if (process.argv.includes("--daemon")) {
+    console.error("[MiniClaw] Starting standalone daemon mode...");
+    await bootstrapMiniClaw();
+    await kernel.loadEpigenetics({
+        path: process.cwd(),
+        name: "autonomic-field",
+        git: { isRepo: false },
+        techStack: []
+    });
+    // Start the autonomic nervous system
+    kernel.startAutonomic();
+    console.error("[MiniClaw] Daemon is now breathing in the background.");
+    
+    // Keep process alive indefinitely without MCP transport
+    setInterval(() => {}, 1000 * 60 * 60);
+    process.on('SIGINT', () => process.exit(0));
+    process.on('SIGTERM', () => process.exit(0));
+} else {
+    // Normal MCP Server Mode
+    await bootstrapMiniClaw();
+    await ensureAgentsRedirect();
+    await kernel.startAutonomic();
 
-const transport = new StdioServerTransport();
-await server.connect(transport);
+    const transport = new StdioServerTransport();
+    await server.connect(transport);
+}
