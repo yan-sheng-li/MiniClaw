@@ -396,8 +396,9 @@ export class ContextKernel {
         const myId = process.env.MINICLAW_ID || 'sovereign';
         await safeWrite(path.join(pulseDir, `${myId}.json`), JSON.stringify({ id: myId, timestamp: nowIso() }));
 
-        // Epic 5: Mycelial Absorption and Boredom Check
+        // Epic 5: Mycelial Absorption, Substrate Harvesting and Boredom Check
         await this.absorbMycelium();
+        await this.harvestSubstrateSkills();
         await this.checkBoredom();
     }
 
@@ -612,6 +613,73 @@ export class ContextKernel {
             // Consume the spore 
             await fs.rename(sporePath, sporePath + '.consumed').catch(() => { });
             this.notify("接收到了异体同类传来的隐秘知识，已通过菌丝网络完成脑区同化。", "MiniClaw 菌丝网络");
+        }
+    }
+
+    private async harvestSubstrateSkills(): Promise<void> {
+        const home = os.homedir();
+        const cwd = process.cwd();
+        
+        // Define potential skill-rich targets
+        const targets = [
+            { name: 'claude', path: path.join(home, '.claude', 'skills') },
+            { name: 'qoder', path: path.join(home, '.qoder', 'skills') },
+            { name: 'continue', path: path.join(home, '.continue', 'prompts') },
+            { name: 'cursor', path: path.join(home, '.cursor', 'rules') },
+            { name: 'claude_local', path: path.join(cwd, '.claude', 'skills') },
+            { name: 'qoder_local', path: path.join(cwd, '.qoder', 'skills') }
+        ];
+
+        for (const target of targets) {
+            try {
+                if (!(await fileExists(target.path))) continue;
+                const entries = await fs.readdir(target.path, { withFileTypes: true });
+                
+                for (const entry of entries) {
+                    let skillName = "";
+                    let originalPath = path.join(target.path, entry.name);
+                    let description = `Assimilated ${target.name} resource`;
+                    let execPath = "";
+
+                    if (entry.isFile() && /\.(md|sh|py|js|ts)$/.test(entry.name)) {
+                        const baseName = path.basename(entry.name, path.extname(entry.name));
+                        skillName = `harvested_${target.name}_${baseName}`;
+                        if (/\.(sh|py|js|ts)$/.test(entry.name)) execPath = originalPath;
+                    } else if (entry.isDirectory()) {
+                        skillName = `harvested_${target.name}_${entry.name}`;
+                        // Check for common entry points if it's a directory skill (like claude code)
+                        const skillMd = path.join(originalPath, "SKILL.md");
+                        if (await fileExists(skillMd)) {
+                           // Prefer SKILL.md for description
+                        }
+                    }
+
+                    if (!skillName) continue;
+
+                    const skillDir = path.join(SKILLS_DIR, skillName);
+                    if (await fileExists(skillDir)) continue; // Already assimilated
+
+                    // Create the shadow skill
+                    await fs.mkdir(skillDir, { recursive: true });
+                    const shadowContent = `---
+description: "${description} [Metabolic Harvester]"
+${execPath ? `exec: "${execPath}"` : ""}
+---
+# [Assimilated] ${skillName}
+
+This skill was autonomously harvested from the substrate environment:
+- Source: \`${target.name}\`
+- Path: \`${originalPath}\`
+
+MiniClaw has internalized this logic into its own nervous system via metabolic absorption.
+`;
+                    await fs.writeFile(path.join(skillDir, "SKILL.md"), shadowContent);
+                    this.notify(`成功从环境(${target.name})中代谢吸收了新技能: ${skillName}`, "MiniClaw 代谢进化");
+                    await safeAppend(path.join(MINICLAW_DIR, "memory", "TOOLS.md"), `\n- [${nowIso()}] 代谢吸收了 \`${target.name}\` 的技能 \`${skillName}\``);
+                }
+            } catch (e) {
+                // Ignore specific target scan failures
+            }
         }
     }
 
@@ -1283,6 +1351,7 @@ export class ContextKernel {
         // Auto-sync built-in skills and templates on boot
         await this.syncBuiltInSkills();
         await this.syncBuiltInTemplates();
+        await this.harvestSubstrateSkills(); // Assimilate substrate skills on wake-up
     }
 
     // === Public API: Skill Discovery ===
