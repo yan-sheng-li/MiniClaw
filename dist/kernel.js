@@ -316,9 +316,10 @@ export class ContextKernel {
                 return;
             const prompt = content.trim();
             const candidates = [
-                { name: "claude", args: "-p --output-format text < /dev/null" },
-                { name: "gemini", args: "-p < /dev/null" },
-                { name: "ccr", args: "code < /dev/null" }
+                { name: "ccr", args: "code" },
+                { name: "gemini", args: "-p" },
+                { name: "qodercli", args: "-p" },
+                { name: "claude", args: "-p --output-format text" }
             ];
             let success = false;
             let lastError = "";
@@ -328,7 +329,8 @@ export class ContextKernel {
                     await execAsync(`command -v ${cli.name}`);
                     // 2. Attempt execution
                     console.error(`[MiniClaw] Cognitive Pulse: Attempting via ${cli.name}...`);
-                    const { stdout, stderr } = await execAsync(`${cli.name} ${cli.args} "${prompt.replace(/"/g, '\\"')}"`);
+                    // Redirection < /dev/null must be at the very end
+                    const { stdout, stderr } = await execAsync(`${cli.name} ${cli.args} "${prompt.replace(/"/g, '\\"')}" < /dev/null`);
                     // 3. Log success
                     const timestamp = `[${nowIso()}]`;
                     const logEntry = `${timestamp} --- Cognitive Pulse Success (${cli.name}) ---\nSTDOUT:\n${stdout}\nSTDERR:\n${stderr}\n`;
